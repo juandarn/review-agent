@@ -88,10 +88,8 @@ curl -fsSL .../install.sh | bash -s -- --uninstall
 ## Prerequisites
 
 - [OpenCode](https://opencode.ai) installed
-- Anthropic API key configured (`ANTHROPIC_API_KEY` or via `/connect`)
+- An LLM provider configured in OpenCode (Anthropic, Google, OpenAI, etc.)
 - `gh` CLI installed and authenticated (for PR reviews)
-
-> **Want to use a different model?** Edit the `model:` field in each agent's `.md` file.
 
 ---
 
@@ -233,14 +231,15 @@ Files reviewed, issues by category
 
 ## Customization
 
-### Change the model
+### Model
 
-Edit the `model` field in any agent's `.md` file:
+The plugin uses whatever model you've configured in OpenCode — no hardcoded model.
+Change your model in OpenCode's settings and all agents will use it automatically.
+
+If you want to override a specific agent, add a `model:` field to its frontmatter:
 
 ```yaml
 model: anthropic/claude-sonnet-4-6
-model: google/gemini-3-pro-preview
-model: copilot/claude-sonnet-4
 ```
 
 ### Per-project install
@@ -275,12 +274,5 @@ review-agent/
     backend-reference/
       SKILL.md               # Lazy-loaded Go/Python/SQL/API reference
   install.sh                 # One-command installer
-  LICENSE                    # MIT
   README.md                  # This file
 ```
-
----
-
-## License
-
-MIT

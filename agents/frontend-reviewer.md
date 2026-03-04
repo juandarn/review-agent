@@ -4,7 +4,6 @@ description: >
   TypeScript usage, component design, performance, accessibility, and styling.
   Invoked by review-agent when frontend files are detected in the diff.
 mode: subagent
-model: anthropic/claude-opus-4-6
 temperature: 0.2
 tools:
   write: false

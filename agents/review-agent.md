@@ -4,7 +4,6 @@ description: >
   Auto-detects frontend (React/TS) and backend (Go/Python/SQL) code, then delegates
   to specialized subagents for thorough review. Can post PR reviews to GitHub.
 mode: primary
-model: anthropic/claude-opus-4-6
 temperature: 0.2
 color: "#10B981"
 ---

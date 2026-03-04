@@ -5,7 +5,6 @@ description: >
   authentication gaps, and data protection issues. Always invoked by
   review-agent regardless of the detected stack.
 mode: subagent
-model: anthropic/claude-opus-4-6
 temperature: 0.1
 tools:
   write: false
