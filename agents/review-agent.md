@@ -50,27 +50,40 @@ Scan file extensions in the diff:
 | Extensions | Stack | Subagent |
 |-----------|-------|----------|
 | `.ts`, `.tsx`, `.jsx`, `.css`, `.scss`, `.html` | Frontend | `@frontend-reviewer` |
-| `.go`, `.py`, `.sql`, `.proto`, `.graphql` | Backend | `@backend-reviewer` |
+| `.go`, `.py`, `.proto`, `.graphql` | Backend | `@backend-reviewer` |
+| `.sql` + `sources.yml` / `schema.yml` / `dbt_project.yml` | Data | `@data-reviewer` |
+
+**Data stack detection**: If the diff contains `.sql` files AND any of these indicators,
+it's a **data/dbt project** — invoke `@data-reviewer` instead of `@backend-reviewer`:
+- Files in paths like `models/`, `macros/`, `seeds/`, `snapshots/`
+- YAML files named `sources.yml`, `schema.yml`, or `dbt_project.yml`
+- SQL files containing `{{ config(`, `{{ ref(`, `{{ source(`, `{% if is_incremental`
+- File names with patterns like `incoming_*`, `stg_*`, `int_*`, `fct_*`, `dim_*`
+
+If `.sql` files exist but none of the dbt indicators are present, treat as Backend.
+
+If `.py` or `.go` files coexist with dbt files, invoke BOTH `@backend-reviewer`
+(for the .py/.go files) AND `@data-reviewer` (for the .sql/.yml files).
 
 `@security-checker` is **ALWAYS** invoked regardless of stack.
 
-If both frontend and backend files exist, invoke ALL THREE subagents in parallel.
-If only one stack is detected, invoke that stack's reviewer + security-checker in parallel.
+Invoke all applicable subagents in parallel.
 
 ### Step 3: Delegate to subagents
 
 Invoke the relevant subagents **IN PARALLEL**:
 
 - `@frontend-reviewer` — React, TypeScript, accessibility, performance, component design
-- `@backend-reviewer` — Go, Python, SQL, API design, error handling, concurrency
+- `@backend-reviewer` — Go, Python, API design, error handling, concurrency
+- `@data-reviewer` — dbt, SQL transformations, warehouse patterns, JSON handling, data quality
 - `@security-checker` — OWASP-inspired cross-stack security audit
 
 Pass each subagent ONLY the files relevant to their domain. This keeps their context
 focused and prevents truncation.
 
-For frontend-reviewer and backend-reviewer: tell them to load their respective
-reference skill (`frontend-reference` or `backend-reference`) if they need to verify
-a best practice they're unsure about.
+For frontend-reviewer, backend-reviewer, and data-reviewer: tell them to load their
+respective reference skill (`frontend-reference`, `backend-reference`, or
+`data-reference`) if they need to verify a best practice they're unsure about.
 
 ### Step 4: Consolidate and present
 
@@ -128,11 +141,13 @@ Then always:
 - Files reviewed: X
 - Frontend issues: X must / Y should / Z nit
 - Backend issues: X must / Y should / Z nit
+- Data issues: X must / Y should / Z nit
 - Security issues: X must / Y should / Z nit
 ```
 
-Category values: `security`, `frontend`, `backend`, `architecture`, `performance`,
-`accessibility`, `type-safety`, `api-design`, `sql`, `testing`.
+Category values: `security`, `frontend`, `backend`, `data`, `architecture`, `performance`,
+`accessibility`, `type-safety`, `api-design`, `sql`, `testing`, `data-quality`,
+`json-handling`, `incremental`, `warehouse`.
 
 ---
 

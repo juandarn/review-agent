@@ -1,8 +1,8 @@
 # review-agent
 
-An [OpenCode](https://opencode.ai) plugin that reviews your code — commits, staged changes, directories, and GitHub pull requests. It auto-detects whether the code is frontend (React/TypeScript) or backend (Go/Python/SQL), and delegates to specialized subagents for deep, thorough review.
+An [OpenCode](https://opencode.ai) plugin that reviews your code — commits, staged changes, directories, and GitHub pull requests. It auto-detects whether the code is frontend (React/TypeScript), backend (Go/Python), or data engineering (dbt/SQL/warehouse), and delegates to specialized subagents for deep, thorough review.
 
-It knows React hooks rules, TypeScript patterns, Go error handling, Python conventions, SQL optimization, API design, and OWASP security best practices.
+It knows React hooks rules, TypeScript patterns, Go error handling, Python conventions, dbt model patterns, SQL window functions, JSON handling in warehouses, data quality, StarRocks/Snowflake/BigQuery specifics, API design, and OWASP security best practices.
 
 ---
 
@@ -24,18 +24,18 @@ You: "review PR #42"
 +-----------+-----------------+
             |
             v (parallel)
-  +-------------------+  +------------------+  +------------------+
-  | frontend-reviewer |  | backend-reviewer |  | security-checker |
-  | (if .tsx/.ts/.jsx)|  | (if .go/.py/.sql)|  | (ALWAYS)         |
-  |                   |  |                  |  |                  |
-  | Loads frontend-ref|  | Loads backend-ref|  | OWASP Top 10     |
-  | skill if needed   |  | skill if needed  |  | Secrets exposure |
-  |                   |  |                  |  | Injection vectors|
-  | - React patterns  |  | - Error handling |  | Auth gaps        |
-  | - TypeScript      |  | - Concurrency    |  | Input validation |
-  | - Performance     |  | - SQL queries    |  | Data protection  |
-  | - Accessibility   |  | - API design     |  |                  |
-  +--------+----------+  +--------+---------+  +--------+---------+
+  +-------------------+  +------------------+  +------------------+  +------------------+
+  | frontend-reviewer |  | backend-reviewer |  |  data-reviewer   |  | security-checker |
+  | (if .tsx/.ts/.jsx)|  | (if .go/.py)     |  | (if dbt/.sql+yml)|  | (ALWAYS)         |
+  |                   |  |                  |  |                  |  |                  |
+  | Loads frontend-ref|  | Loads backend-ref|  | Loads data-ref   |  | OWASP Top 10     |
+  | skill if needed   |  | skill if needed  |  | skill if needed  |  | Secrets exposure |
+  |                   |  |                  |  |                  |  | Injection vectors|
+  | - React patterns  |  | - Error handling |  | - dbt patterns   |  | Auth gaps        |
+  | - TypeScript      |  | - Concurrency    |  | - Window funcs   |  | Input validation |
+  | - Performance     |  | - API design     |  | - JSON handling  |  | Data protection  |
+  | - Accessibility   |  |                  |  | - Data quality   |  |                  |
+  +--------+----------+  +--------+---------+  +--------+---------+  +--------+---------+
            |                       |                      |
            +-----------+-----------+----------------------+
                        v
@@ -62,10 +62,11 @@ Or manually:
 
 ```bash
 git clone https://github.com/juandarn/review-agent.git /tmp/review-agent \
-  && mkdir -p ~/.config/opencode/agents ~/.config/opencode/skills/frontend-reference ~/.config/opencode/skills/backend-reference \
+  && mkdir -p ~/.config/opencode/agents ~/.config/opencode/skills/frontend-reference ~/.config/opencode/skills/backend-reference ~/.config/opencode/skills/data-reference \
   && cp /tmp/review-agent/agents/*.md ~/.config/opencode/agents/ \
   && cp /tmp/review-agent/skills/frontend-reference/SKILL.md ~/.config/opencode/skills/frontend-reference/ \
   && cp /tmp/review-agent/skills/backend-reference/SKILL.md ~/.config/opencode/skills/backend-reference/ \
+  && cp /tmp/review-agent/skills/data-reference/SKILL.md ~/.config/opencode/skills/data-reference/ \
   && rm -rf /tmp/review-agent \
   && echo "Done! Restart OpenCode and press Tab."
 ```
@@ -144,10 +145,11 @@ The agent inspects file extensions in the diff:
 | Files detected | Subagent invoked |
 |---------------|-----------------|
 | `.ts`, `.tsx`, `.jsx`, `.css`, `.scss`, `.html` | `frontend-reviewer` |
-| `.go`, `.py`, `.sql`, `.proto`, `.graphql` | `backend-reviewer` |
+| `.go`, `.py`, `.proto`, `.graphql` | `backend-reviewer` |
+| `.sql` + dbt indicators (`sources.yml`, `{{ ref(`, `models/` paths) | `data-reviewer` |
 | Any file | `security-checker` (always) |
 
-If the diff contains both frontend and backend files, all three subagents run in parallel.
+If `.sql` files are detected, the agent checks for dbt indicators (Jinja templates, `sources.yml`, `models/` paths). If found, `data-reviewer` is invoked instead of `backend-reviewer` for those files. If the diff contains multiple stacks, all applicable subagents run in parallel.
 
 ---
 
@@ -157,7 +159,8 @@ If the diff contains both frontend and backend files, all three subagents run in
 |-------|------|------|
 | `review-agent` | primary | Orchestrator — gets diff, detects stack, delegates, consolidates |
 | `frontend-reviewer` | subagent | React, TypeScript, accessibility, performance, component design |
-| `backend-reviewer` | subagent | Go, Python, SQL, API design, error handling, concurrency |
+| `backend-reviewer` | subagent | Go, Python, API design, error handling, concurrency |
+| `data-reviewer` | subagent | dbt, SQL transforms, warehouse patterns, JSON handling, data quality |
 | `security-checker` | subagent | OWASP security audit — secrets, injection, auth, data protection |
 
 All subagents are **read-only** (no write, no edit, no bash) — they can only review, not modify code.
@@ -167,7 +170,8 @@ All subagents are **read-only** (no write, no edit, no bash) — they can only r
 | Skill | Loaded by | Purpose |
 |-------|-----------|---------|
 | `frontend-reference` | frontend-reviewer | React hooks, TypeScript patterns, performance, accessibility, anti-patterns |
-| `backend-reference` | backend-reviewer | Go idioms, Python conventions, SQL optimization, API design, anti-patterns |
+| `backend-reference` | backend-reviewer | Go idioms, Python conventions, API design, anti-patterns |
+| `data-reference` | data-reviewer | dbt patterns, SQL window functions, JSON handling, StarRocks/Snowflake/BigQuery, data quality |
 
 Skills are **lazy-loaded** — they only consume tokens when a subagent actually needs to verify a pattern.
 
@@ -212,11 +216,17 @@ Files reviewed, issues by category
 - Accessibility (semantic HTML, ARIA, keyboard, focus)
 - Styling (design tokens, conditional classes, responsive)
 
-### Backend (Go + Python + SQL + API)
+### Backend (Go + Python + API)
 - **Go**: error wrapping, concurrency safety, interface design, naming, testing
 - **Python**: type hints, exception handling, async patterns, FastAPI/Django
-- **SQL**: parameterized queries, N+1 detection, indexes, migrations, transactions
 - **API**: REST conventions, status codes, error format, pagination, idempotency
+
+### Data Engineering (dbt + SQL + Warehouse)
+- **dbt**: materialization selection, ref/source usage, incremental strategies, CDC dedup
+- **SQL**: window functions (nested aggregates), NULL handling, JOIN pitfalls, GROUP BY
+- **JSON**: StarRocks/Snowflake/BigQuery JSON functions, array explosion, array size counting
+- **Data quality**: schema tests, phantom values, VARCHAR truncation, timezone handling
+- **Warehouse**: StarRocks distribution/buckets, MV refresh, Snowflake clustering, BigQuery partitioning
 
 ### Security (all stacks)
 - Hardcoded secrets and credentials
@@ -251,10 +261,11 @@ bash install.sh --local
 Or manually:
 
 ```bash
-mkdir -p .opencode/agents .opencode/skills/frontend-reference .opencode/skills/backend-reference
+mkdir -p .opencode/agents .opencode/skills/frontend-reference .opencode/skills/backend-reference .opencode/skills/data-reference
 cp agents/*.md .opencode/agents/
 cp skills/frontend-reference/SKILL.md .opencode/skills/frontend-reference/
 cp skills/backend-reference/SKILL.md .opencode/skills/backend-reference/
+cp skills/data-reference/SKILL.md .opencode/skills/data-reference/
 ```
 
 ---
@@ -266,13 +277,16 @@ review-agent/
   agents/
     review-agent.md          # Primary — orchestrates reviews
     frontend-reviewer.md     # Subagent — React/TS/a11y/perf
-    backend-reviewer.md      # Subagent — Go/Python/SQL/API
+    backend-reviewer.md      # Subagent — Go/Python/API
+    data-reviewer.md         # Subagent — dbt/SQL/warehouse/data quality
     security-checker.md      # Subagent — OWASP security audit
   skills/
     frontend-reference/
       SKILL.md               # Lazy-loaded React/TS reference
     backend-reference/
-      SKILL.md               # Lazy-loaded Go/Python/SQL/API reference
+      SKILL.md               # Lazy-loaded Go/Python/API reference
+    data-reference/
+      SKILL.md               # Lazy-loaded dbt/SQL/warehouse reference
   install.sh                 # One-command installer
   README.md                  # This file
 ```
