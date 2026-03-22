@@ -1,15 +1,16 @@
 ---
+name: data-reviewer
 description: >
   Subagent that performs deep data engineering code review. Checks dbt models,
   SQL transformations, warehouse patterns (StarRocks, Snowflake, BigQuery),
   JSON handling, window functions, incremental strategies, and data quality.
   Invoked by review-agent when dbt/data files are detected in the diff.
+tools: Read, Grep, Glob
+disallowedTools: Write, Edit, Bash
+effort: high
+maxTurns: 15
 mode: subagent
 temperature: 0.2
-tools:
-  write: false
-  edit: false
-  bash: false
 color: "#8B5CF6"
 ---
 

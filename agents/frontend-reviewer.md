@@ -1,14 +1,15 @@
 ---
+name: frontend-reviewer
 description: >
   Subagent that performs deep frontend code review. Checks React patterns,
   TypeScript usage, component design, performance, accessibility, and styling.
   Invoked by review-agent when frontend files are detected in the diff.
+tools: Read, Grep, Glob
+disallowedTools: Write, Edit, Bash
+effort: high
+maxTurns: 15
 mode: subagent
 temperature: 0.2
-tools:
-  write: false
-  edit: false
-  bash: false
 color: "#3B82F6"
 ---
 

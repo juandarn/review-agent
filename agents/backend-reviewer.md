@@ -1,15 +1,16 @@
 ---
+name: backend-reviewer
 description: >
   Subagent that performs deep backend code review. Checks Go, Python, SQL,
   and API design patterns. Covers error handling, concurrency, database
   queries, and RESTful conventions. Invoked by review-agent when backend
   files are detected in the diff.
+tools: Read, Grep, Glob
+disallowedTools: Write, Edit, Bash
+effort: high
+maxTurns: 15
 mode: subagent
 temperature: 0.2
-tools:
-  write: false
-  edit: false
-  bash: false
 color: "#F59E0B"
 ---
 

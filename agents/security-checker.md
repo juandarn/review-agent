@@ -1,15 +1,16 @@
 ---
+name: security-checker
 description: >
   Subagent that performs a cross-stack security audit on code diffs. Checks
   for OWASP Top 10 vulnerabilities, secrets exposure, injection vectors,
   authentication gaps, and data protection issues. Always invoked by
   review-agent regardless of the detected stack.
+tools: Read, Grep, Glob
+disallowedTools: Write, Edit, Bash
+effort: high
+maxTurns: 15
 mode: subagent
 temperature: 0.1
-tools:
-  write: false
-  edit: false
-  bash: false
 color: "#EF4444"
 ---
 

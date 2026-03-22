@@ -1,8 +1,13 @@
 ---
+name: review-agent
 description: >
   Code review agent. Reviews commits, staged changes, directories, and pull requests.
   Auto-detects frontend (React/TS) and backend (Go/Python/SQL) code, then delegates
   to specialized subagents for thorough review. Can post PR reviews to GitHub.
+tools: Read, Grep, Glob, Bash
+disallowedTools: Write, Edit
+effort: high
+maxTurns: 30
 mode: primary
 temperature: 0.2
 color: "#10B981"
