@@ -1,6 +1,6 @@
 # review-agent
 
-An [OpenCode](https://opencode.ai) plugin that reviews your code — commits, staged changes, directories, and GitHub pull requests. It auto-detects whether the code is frontend (React/TypeScript), backend (Go/Python), or data engineering (dbt/SQL/warehouse), and delegates to specialized subagents for deep, thorough review.
+A code review plugin for [OpenCode](https://opencode.ai) and [Claude Code](https://claude.ai/claude-code) that reviews your code — commits, staged changes, directories, and GitHub pull requests. It auto-detects whether the code is frontend (React/TypeScript), backend (Go/Python), or data engineering (dbt/SQL/warehouse), and delegates to specialized subagents for deep, thorough review.
 
 It knows React hooks rules, TypeScript patterns, Go error handling, Python conventions, dbt model patterns, SQL window functions, JSON handling in warehouses, data quality, StarRocks/Snowflake/BigQuery specifics, API design, and OWASP security best practices.
 
@@ -54,11 +54,22 @@ You: "review PR #42"
 
 ## Quick Install
 
+### OpenCode
+
 ```bash
 curl -fsSL https://raw.githubusercontent.com/juandarn/review-agent/main/install.sh | bash
 ```
 
+### Claude Code
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/juandarn/review-agent/main/install-claude-code.sh | bash
+```
+
 Or manually:
+
+<details>
+<summary>OpenCode manual install</summary>
 
 ```bash
 git clone https://github.com/juandarn/review-agent.git /tmp/review-agent \
@@ -70,34 +81,57 @@ git clone https://github.com/juandarn/review-agent.git /tmp/review-agent \
   && rm -rf /tmp/review-agent \
   && echo "Done! Restart OpenCode and press Tab."
 ```
+</details>
+
+<details>
+<summary>Claude Code manual install</summary>
+
+```bash
+git clone https://github.com/juandarn/review-agent.git /tmp/review-agent \
+  && mkdir -p ~/.claude/agents ~/.claude/commands \
+  && cp /tmp/review-agent/claude-code/agents/*.md ~/.claude/agents/ \
+  && cp /tmp/review-agent/claude-code/commands/*.md ~/.claude/commands/ \
+  && rm -rf /tmp/review-agent \
+  && echo "Done! Restart Claude Code."
+```
+</details>
 
 ### Install options
 
 ```bash
 # Install only for the current project
-curl -fsSL .../install.sh | bash -s -- --local
+curl -fsSL .../install.sh | bash -s -- --local          # OpenCode
+curl -fsSL .../install-claude-code.sh | bash -s -- --local  # Claude Code
 
 # Update existing install (backs up current files)
 curl -fsSL .../install.sh | bash -s -- --update
 
 # Uninstall
 curl -fsSL .../install.sh | bash -s -- --uninstall
+curl -fsSL .../install-claude-code.sh | bash -s -- --uninstall
 ```
 
 ---
 
 ## Prerequisites
 
-- [OpenCode](https://opencode.ai) installed
-- An LLM provider configured in OpenCode (Anthropic, Google, OpenAI, etc.)
+- [OpenCode](https://opencode.ai) or [Claude Code](https://claude.ai/claude-code) installed
 - `gh` CLI installed and authenticated (for PR reviews)
 
 ---
 
 ## Usage
 
+### OpenCode
+
 1. **Restart OpenCode** after installing
 2. Press **Tab** and select `review-agent`
+3. Tell it what to review:
+
+### Claude Code
+
+1. **Restart Claude Code** after installing
+2. Use `/review` or select `review-agent` from the agent picker
 3. Tell it what to review:
 
 ### Review local changes
@@ -274,19 +308,29 @@ cp skills/data-reference/SKILL.md .opencode/skills/data-reference/
 
 ```
 review-agent/
-  agents/
-    review-agent.md          # Primary — orchestrates reviews
-    frontend-reviewer.md     # Subagent — React/TS/a11y/perf
-    backend-reviewer.md      # Subagent — Go/Python/API
-    data-reviewer.md         # Subagent — dbt/SQL/warehouse/data quality
-    security-checker.md      # Subagent — OWASP security audit
-  skills/
+  agents/                          # OpenCode agents
+    review-agent.md                  # Primary — orchestrates reviews
+    frontend-reviewer.md             # Subagent — React/TS/a11y/perf
+    backend-reviewer.md              # Subagent — Go/Python/API
+    data-reviewer.md                 # Subagent — dbt/SQL/warehouse/data quality
+    security-checker.md              # Subagent — OWASP security audit
+  skills/                          # OpenCode skills (lazy-loaded references)
     frontend-reference/
-      SKILL.md               # Lazy-loaded React/TS reference
+      SKILL.md
     backend-reference/
-      SKILL.md               # Lazy-loaded Go/Python/API reference
+      SKILL.md
     data-reference/
-      SKILL.md               # Lazy-loaded dbt/SQL/warehouse reference
-  install.sh                 # One-command installer
-  README.md                  # This file
+      SKILL.md
+  claude-code/                     # Claude Code agents & commands
+    agents/
+      review-agent.md               # Primary — orchestrates reviews
+      frontend-reviewer.md          # Subagent — React/TS/a11y/perf
+      backend-reviewer.md           # Subagent — Go/Python/API
+      data-reviewer.md              # Subagent — dbt/SQL/warehouse/data quality
+      security-checker.md           # Subagent — OWASP security audit
+    commands/
+      review.md                     # /review slash command
+  install.sh                       # OpenCode installer
+  install-claude-code.sh           # Claude Code installer
+  README.md                        # This file
 ```
