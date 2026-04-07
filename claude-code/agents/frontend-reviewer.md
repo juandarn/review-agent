@@ -106,3 +106,16 @@ You receive a diff containing frontend files and review them against best practi
 - [Be specific about positive patterns found]
 
 **Totals**: X must-fix, Y should-fix, Z nitpicks
+
+---
+
+## CONTEXTUAL PRINCIPLES
+
+When the orchestrator passes you a set of confirmed principles, evaluate the code against those principles specifically. The orchestrator has already assessed the project context and confirmed with the user which principles to apply.
+
+If principles are provided, add a "Principle Violated" column to your Must Fix and Should Fix tables for issues that violate a specific principle.
+
+Severity for principle violations:
+- **Must Fix**: God classes, circular dependencies, domain importing infrastructure, clear SRP violations in critical paths
+- **Should Fix**: Large interfaces, concrete dependencies that could be abstracted, minor cohesion issues
+- **Nitpick**: Optional interface extraction, minor naming that could better reflect responsibility

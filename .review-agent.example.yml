@@ -1,0 +1,52 @@
+# .review-agent.yml — Project-specific configuration for the cr-* suite
+#
+# Place this file in your project root. All cr-* commands will read it
+# automatically and adapt their behavior.
+#
+# Every field is optional. If omitted, the agent uses smart defaults.
+
+# Stack override (skip auto-detection)
+# Useful when your project has mixed extensions that confuse detection.
+# stacks:
+#   - frontend    # Force frontend-reviewer
+#   - backend     # Force backend-reviewer
+#   - data        # Force data-reviewer (dbt/SQL)
+
+# Default mode for /cr (deep | quick | security-only | frontend-only | backend-only | data-only)
+# default_mode: deep
+
+# Custom rules per command (appended to built-in checklists)
+# These are project-specific rules the agents will enforce in addition
+# to their default checklists.
+# rules:
+#   cr:
+#     - "All API endpoints must have rate limiting middleware"
+#     - "Repository pattern for all database access"
+#     - "No direct database queries in handlers or controllers"
+#   refactor:
+#     - "Functions over 20 lines should be flagged (stricter than default 30)"
+#     - "No business logic in controllers"
+#   arch:
+#     - "Must follow hexagonal architecture"
+#     - "Domain layer must not import infrastructure"
+#   research:
+#     - "All new features must have a rollback strategy"
+#     - "New endpoints require OpenAPI spec update"
+
+# Paths to ignore (never reviewed or analyzed)
+# ignore:
+#   - "vendor/"
+#   - "node_modules/"
+#   - "*.generated.go"
+#   - "*.min.js"
+#   - "dist/"
+#   - "__pycache__/"
+
+# Severity overrides
+# Override the default severity level for specific checks.
+# Values: must_fix | should_fix | nitpick
+# severity:
+#   no_any_type: must_fix            # default: should_fix
+#   missing_error_handling: must_fix  # default: should_fix
+#   hardcoded_secrets: must_fix       # always must_fix (cannot downgrade)
+#   missing_tests: should_fix         # default: nitpick

@@ -1,54 +1,22 @@
 # review-agent
 
-A code review plugin for [OpenCode](https://opencode.ai) and [Claude Code](https://claude.ai/claude-code) that reviews your code — commits, staged changes, directories, and GitHub pull requests. It auto-detects whether the code is frontend (React/TypeScript), backend (Go/Python), or data engineering (dbt/SQL/warehouse), and delegates to specialized subagents for deep, thorough review.
+A code analysis suite for [OpenCode](https://opencode.ai) and [Claude Code](https://claude.ai/claude-code). Reviews code, analyzes refactoring opportunities, evaluates architecture, generates AI agent guides, and researches feature integration — all with contextual design principle assessment.
 
-It knows React hooks rules, TypeScript patterns, Go error handling, Python conventions, dbt model patterns, SQL window functions, JSON handling in warehouses, data quality, StarRocks/Snowflake/BigQuery specifics, API design, and OWASP security best practices.
+Auto-detects frontend (React/TS), backend (Go/Python), and data (dbt/SQL) stacks, delegating to specialized subagents for deep analysis.
 
 ---
 
-## What It Does
+## The `/cr-*` Suite
 
-```
-You: "review PR #42"
-      |
-      v
-+-----------------------------+
-|      review-agent           |
-|                             |
-|  1. Fetches diff            |
-|     (git diff or gh pr diff)|
-|  2. Detects stacks from     |
-|     file extensions         |
-|  3. Delegates to subagents  |
-|     IN PARALLEL             |
-+-----------+-----------------+
-            |
-            v (parallel)
-  +-------------------+  +------------------+  +------------------+  +------------------+
-  | frontend-reviewer |  | backend-reviewer |  |  data-reviewer   |  | security-checker |
-  | (if .tsx/.ts/.jsx)|  | (if .go/.py)     |  | (if dbt/.sql+yml)|  | (ALWAYS)         |
-  |                   |  |                  |  |                  |  |                  |
-  | Loads frontend-ref|  | Loads backend-ref|  | Loads data-ref   |  | OWASP Top 10     |
-  | skill if needed   |  | skill if needed  |  | skill if needed  |  | Secrets exposure |
-  |                   |  |                  |  |                  |  | Injection vectors|
-  | - React patterns  |  | - Error handling |  | - dbt patterns   |  | Auth gaps        |
-  | - TypeScript      |  | - Concurrency    |  | - Window funcs   |  | Input validation |
-  | - Performance     |  | - API design     |  | - JSON handling  |  | Data protection  |
-  | - Accessibility   |  |                  |  | - Data quality   |  |                  |
-  +--------+----------+  +--------+---------+  +--------+---------+  +--------+---------+
-           |                       |                      |
-           +-----------+-----------+----------------------+
-                       v
-+-----------------------------+
-|      review-agent           |
-|                             |
-|  4. Consolidates all reviews|
-|  5. Deduplicates issues     |
-|  6. Presents unified report |
-|  7. For PRs: asks before    |
-|     posting to GitHub       |
-+-----------------------------+
-```
+| Command | What it does |
+|---------|-------------|
+| `/cr` | Code review — commits, staged changes, PRs. Modes: deep, quick, security-only, etc. |
+| `/cr-refactor` | Analyze code smells, complexity, duplication. Suggests concrete refactorings. |
+| `/cr-arch` | Architecture analysis — frontend/backend separately. Can generate `ARCHITECTURE.md`. |
+| `/cr-agents` | Generate `AGENTS.md` — full context for AI agents to work in the project. |
+| `/cr-research` | Research feature integration — theoretical analysis + implementation plan. |
+
+All commands support project-specific customization via `.review-agent.yml`.
 
 ---
 
@@ -66,25 +34,29 @@ curl -fsSL https://raw.githubusercontent.com/juandarn/review-agent/main/install.
 curl -fsSL https://raw.githubusercontent.com/juandarn/review-agent/main/install-claude-code.sh | bash
 ```
 
-Or manually:
-
-<details>
-<summary>OpenCode manual install</summary>
+### Install options
 
 ```bash
-git clone https://github.com/juandarn/review-agent.git /tmp/review-agent \
-  && mkdir -p ~/.config/opencode/agents ~/.config/opencode/skills/frontend-reference ~/.config/opencode/skills/backend-reference ~/.config/opencode/skills/data-reference \
-  && cp /tmp/review-agent/agents/*.md ~/.config/opencode/agents/ \
-  && cp /tmp/review-agent/skills/frontend-reference/SKILL.md ~/.config/opencode/skills/frontend-reference/ \
-  && cp /tmp/review-agent/skills/backend-reference/SKILL.md ~/.config/opencode/skills/backend-reference/ \
-  && cp /tmp/review-agent/skills/data-reference/SKILL.md ~/.config/opencode/skills/data-reference/ \
-  && rm -rf /tmp/review-agent \
-  && echo "Done! Restart OpenCode and press Tab."
+# Install for current project only
+bash install.sh --local
+bash install-claude-code.sh --local
+
+# Update existing install (backs up current files)
+bash install.sh --update
+
+# With pre-push hook (auto quick review before push)
+bash install-claude-code.sh --with-hooks
+
+# With project config template
+bash install-claude-code.sh --with-config
+
+# Uninstall
+bash install.sh --uninstall
+bash install-claude-code.sh --uninstall
 ```
-</details>
 
 <details>
-<summary>Claude Code manual install</summary>
+<summary>Manual install (Claude Code)</summary>
 
 ```bash
 git clone https://github.com/juandarn/review-agent.git /tmp/review-agent \
@@ -96,211 +68,246 @@ git clone https://github.com/juandarn/review-agent.git /tmp/review-agent \
 ```
 </details>
 
-### Install options
-
-```bash
-# Install only for the current project
-curl -fsSL .../install.sh | bash -s -- --local          # OpenCode
-curl -fsSL .../install-claude-code.sh | bash -s -- --local  # Claude Code
-
-# Update existing install (backs up current files)
-curl -fsSL .../install.sh | bash -s -- --update
-
-# Uninstall
-curl -fsSL .../install.sh | bash -s -- --uninstall
-curl -fsSL .../install-claude-code.sh | bash -s -- --uninstall
-```
-
 ---
 
 ## Prerequisites
 
-- [OpenCode](https://opencode.ai) or [Claude Code](https://claude.ai/claude-code) installed
+- [OpenCode](https://opencode.ai) or [Claude Code](https://claude.ai/claude-code)
 - `gh` CLI installed and authenticated (for PR reviews)
 
 ---
 
-## Usage
+## `/cr` — Code Review
 
-### OpenCode
+### Modes
 
-1. **Restart OpenCode** after installing
-2. Press **Tab** and select `review-agent`
-3. Tell it what to review:
+| Mode | What runs | Output |
+|------|-----------|--------|
+| `deep` (default) | All detected stacks + security | Full report |
+| `quick` | All detected stacks + security | Only Must Fix + Verdict |
+| `security-only` | Security checker | Security report only |
+| `frontend-only` | Frontend reviewer | Frontend report only |
+| `backend-only` | Backend reviewer | Backend report only |
+| `data-only` | Data reviewer | Data report only |
 
-### Claude Code
-
-1. **Restart Claude Code** after installing
-2. Use `/review` or select `review-agent` from the agent picker
-3. Tell it what to review:
-
-### Review local changes
-
-```
-review staged changes
-```
+### Examples
 
 ```
-review last commit
+/cr                           # Review staged changes (deep mode)
+/cr quick PR #42              # Quick review of PR
+/cr security-only last commit # Security-only review
+/cr deep HEAD~3..HEAD         # Deep review of last 3 commits
+/cr frontend-only src/components/
 ```
 
-```
-review HEAD~3..HEAD
-```
+### What it checks
 
-```
-review src/api/handlers/
-```
+**Frontend**: React hooks, TypeScript, performance, accessibility, component design, styling
+**Backend**: Go error handling/concurrency, Python type hints/async, API design, SQL safety
+**Data**: dbt patterns, SQL window functions, JSON handling, warehouse specifics, data quality
+**Security**: OWASP Top 10, secrets, injection, auth, input validation, dependencies
 
-### Review pull requests
+### Contextual principles
 
-```
-review PR #42
-```
-
-```
-review https://github.com/org/repo/pull/123
-```
-
-The agent will:
-- Fetch the diff (via `git diff` or `gh pr diff`)
-- Auto-detect frontend and/or backend code by file extensions
-- Invoke the relevant subagents in parallel
-- Always run the security checker
-- Consolidate all findings into a unified report
-- For PRs: ask before posting the review to GitHub
+Before reviewing, the agent assesses the project (size, type, maturity) and selects
+appropriate design principles (SOLID, KISS, YAGNI, DDD, etc.) — then asks you to confirm.
+A small script gets KISS/YAGNI; a large enterprise app gets full SOLID + Clean Architecture.
 
 ---
 
-## How Stack Detection Works
+## `/cr-refactor` — Refactoring Analysis
 
-The agent inspects file extensions in the diff:
+Analyzes code for smells and suggests concrete refactorings, categorized by impact.
 
-| Files detected | Subagent invoked |
-|---------------|-----------------|
+```
+/cr-refactor src/api/handlers/    # Analyze a directory
+/cr-refactor src/components/Form.tsx  # Analyze a file
+/cr-refactor staged changes       # Analyze staged files (full context)
+```
+
+**Detects**: Extract Function, God Class, Cyclomatic Complexity, DRY violations,
+design principle violations (SRP, DIP, ISP), circular dependencies, dead code, and more.
+
+**Output**: High/Medium/Low impact tables + Code Health Score (Complexity, DRY, Principles, Readability).
+
+---
+
+## `/cr-arch` — Architecture Analysis
+
+Evaluates codebase architecture with **separate frontend and backend analysis**.
+
+```
+/cr-arch                # Analyze entire project
+/cr-arch src/           # Analyze specific directory
+/cr-arch generate       # Analyze + generate ARCHITECTURE.md with Mermaid diagrams
+```
+
+**Frontend analysis**: Component tree, state management, routing, styling, organization pattern
+**Backend analysis**: Layer architecture, domain model, API design, DB patterns, DI
+
+**Output**: Patterns detected, Mermaid dependency diagrams, coupling analysis (fan-in/fan-out),
+principles assessment, prioritized recommendations, Health Score.
+
+---
+
+## `/cr-agents` — Generate AGENTS.md
+
+Generates a comprehensive guide for AI agents to understand and contribute to the codebase.
+
+```
+/cr-agents              # Generate AGENTS.md
+/cr-agents update       # Update existing AGENTS.md (preserves manual additions)
+```
+
+**AGENTS.md includes**: Project overview, tech stack, directory map, where to add new code,
+architecture patterns, key flows (Mermaid diagrams), naming conventions, import rules,
+environment variables, testing strategy, deployment flow, decisions log.
+
+---
+
+## `/cr-research` — Feature Research
+
+Investigates how to integrate a new feature. Produces **theoretical analysis + implementation plan**.
+
+```
+/cr-research add user authentication with OAuth2
+/cr-research migrate from REST to GraphQL
+/cr-research add real-time notifications with WebSockets
+```
+
+**Theoretical analysis**: Impact assessment, recommended approach, design alternatives (pros/cons),
+trade-offs, risks & mitigations, new dependencies.
+
+**Implementation plan**: Prerequisites, step-by-step (files, complexity, dependencies),
+interfaces & contracts, tests needed, migration plan, rollback strategy, checklist.
+
+---
+
+## Project Configuration
+
+Create `.review-agent.yml` in your project root to customize all commands:
+
+```yaml
+# Stack override (skip auto-detection)
+stacks:
+  - frontend
+  - backend
+
+# Default mode for /cr
+default_mode: deep
+
+# Custom rules per command
+rules:
+  cr:
+    - "All API endpoints must have rate limiting"
+    - "Repository pattern for all DB access"
+  refactor:
+    - "Functions over 20 lines should be flagged"
+  arch:
+    - "Must follow hexagonal architecture"
+  research:
+    - "All new features must have rollback strategy"
+
+# Paths to ignore
+ignore:
+  - "vendor/"
+  - "node_modules/"
+  - "*.generated.go"
+
+# Severity overrides
+severity:
+  no_any_type: must_fix
+  missing_error_handling: must_fix
+```
+
+Install the template with `--with-config`:
+
+```bash
+bash install-claude-code.sh --with-config
+```
+
+---
+
+## Pre-push Hook
+
+Automatically runs a quick code review before every push (non-blocking).
+
+```bash
+# Install with the installer
+bash install-claude-code.sh --with-hooks
+
+# Or manually
+bash hooks/install-hook.sh
+
+# Uninstall
+bash hooks/install-hook.sh --uninstall
+```
+
+---
+
+## Stack Detection
+
+| Files detected | Subagent |
+|---------------|----------|
 | `.ts`, `.tsx`, `.jsx`, `.css`, `.scss`, `.html` | `frontend-reviewer` |
 | `.go`, `.py`, `.proto`, `.graphql` | `backend-reviewer` |
-| `.sql` + dbt indicators (`sources.yml`, `{{ ref(`, `models/` paths) | `data-reviewer` |
-| Any file | `security-checker` (always) |
-
-If `.sql` files are detected, the agent checks for dbt indicators (Jinja templates, `sources.yml`, `models/` paths). If found, `data-reviewer` is invoked instead of `backend-reviewer` for those files. If the diff contains multiple stacks, all applicable subagents run in parallel.
+| `.sql` + dbt indicators | `data-reviewer` |
+| Any file | `security-checker` (always, in deep/quick modes) |
 
 ---
 
 ## Agents
 
-| Agent | Type | Role |
-|-------|------|------|
-| `review-agent` | primary | Orchestrator — gets diff, detects stack, delegates, consolidates |
-| `frontend-reviewer` | subagent | React, TypeScript, accessibility, performance, component design |
-| `backend-reviewer` | subagent | Go, Python, API design, error handling, concurrency |
-| `data-reviewer` | subagent | dbt, SQL transforms, warehouse patterns, JSON handling, data quality |
-| `security-checker` | subagent | OWASP security audit — secrets, injection, auth, data protection |
+### Review (`/cr`)
 
-All subagents are **read-only** (no write, no edit, no bash) — they can only review, not modify code.
+| Agent | Role |
+|-------|------|
+| `review-agent` | Orchestrator — diff, detect, delegate, consolidate |
+| `frontend-reviewer` | React, TypeScript, a11y, performance |
+| `backend-reviewer` | Go, Python, API design, SQL |
+| `data-reviewer` | dbt, SQL transforms, warehouse patterns |
+| `security-checker` | OWASP security audit |
 
-## Skills (lazy-loaded)
+### Refactoring (`/cr-refactor`)
 
-| Skill | Loaded by | Purpose |
-|-------|-----------|---------|
-| `frontend-reference` | frontend-reviewer | React hooks, TypeScript patterns, performance, accessibility, anti-patterns |
-| `backend-reference` | backend-reviewer | Go idioms, Python conventions, API design, anti-patterns |
-| `data-reference` | data-reviewer | dbt patterns, SQL window functions, JSON handling, StarRocks/Snowflake/BigQuery, data quality |
+| Agent | Role |
+|-------|------|
+| `refactor-agent` | Orchestrator — gather code, delegate |
+| `refactor-analyzer` | Deep code smell analysis |
 
-Skills are **lazy-loaded** — they only consume tokens when a subagent actually needs to verify a pattern.
+### Architecture (`/cr-arch`)
 
----
+| Agent | Role |
+|-------|------|
+| `arch-agent` | Orchestrator — scan, delegate, generate |
+| `frontend-arch-analyzer` | Frontend architecture analysis |
+| `backend-arch-analyzer` | Backend architecture analysis |
 
-## Review Output Format
+### AGENTS.md (`/cr-agents`)
 
-Every review produces a consolidated report:
+| Agent | Role |
+|-------|------|
+| `agents-doc-generator` | Orchestrator — delegate, generate |
+| `codebase-mapper` | Structure, naming, stack, deps, tests |
+| `flow-tracer` | Flows, decisions, deployment, patterns |
 
-```
-### Summary
-Overall assessment of code quality
+### Research (`/cr-research`)
 
-### Must Fix (blocks merge)
-| # | Category | Issue | File:Line | Why | Fix |
+| Agent | Role |
+|-------|------|
+| `research-agent` | Orchestrator — understand, delegate, consolidate |
+| `theory-analyzer` | Impact, trade-offs, alternatives, risks |
+| `implementation-planner` | Step-by-step plan, tests, rollback |
 
-### Should Fix (important but not blocking)
-| # | Category | Issue | File:Line | Suggestion |
+### Skills (lazy-loaded)
 
-### Nitpicks (nice to have)
-| # | Category | Issue | File:Line | Suggestion |
-
-### What's Good
-Positive patterns highlighted
-
-### Verdict
-APPROVE | APPROVE_WITH_NOTES | REQUEST_CHANGES
-
-### Stats
-Files reviewed, issues by category
-```
-
----
-
-## What It Checks
-
-### Frontend (React + TypeScript)
-- Hooks rules (dependency arrays, cleanup, derived state)
-- Component design (SRP, composition, prop interfaces)
-- TypeScript (no `any`, discriminated unions, strict types)
-- Performance (memoization, re-renders, code splitting)
-- Accessibility (semantic HTML, ARIA, keyboard, focus)
-- Styling (design tokens, conditional classes, responsive)
-
-### Backend (Go + Python + API)
-- **Go**: error wrapping, concurrency safety, interface design, naming, testing
-- **Python**: type hints, exception handling, async patterns, FastAPI/Django
-- **API**: REST conventions, status codes, error format, pagination, idempotency
-
-### Data Engineering (dbt + SQL + Warehouse)
-- **dbt**: materialization selection, ref/source usage, incremental strategies, CDC dedup
-- **SQL**: window functions (nested aggregates), NULL handling, JOIN pitfalls, GROUP BY
-- **JSON**: StarRocks/Snowflake/BigQuery JSON functions, array explosion, array size counting
-- **Data quality**: schema tests, phantom values, VARCHAR truncation, timezone handling
-- **Warehouse**: StarRocks distribution/buckets, MV refresh, Snowflake clustering, BigQuery partitioning
-
-### Security (all stacks)
-- Hardcoded secrets and credentials
-- SQL/XSS/command injection vectors
-- Authentication and authorization gaps
-- Input validation and data protection
-- Dependency vulnerabilities
-- Error message information leakage
-- OWASP Top 10 coverage
-
----
-
-## Customization
-
-### Model
-
-The plugin uses whatever model you've configured in OpenCode — no hardcoded model.
-Change your model in OpenCode's settings and all agents will use it automatically.
-
-If you want to override a specific agent, add a `model:` field to its frontmatter:
-
-```yaml
-model: anthropic/claude-sonnet-4-6
-```
-
-### Per-project install
-
-```bash
-bash install.sh --local
-```
-
-Or manually:
-
-```bash
-mkdir -p .opencode/agents .opencode/skills/frontend-reference .opencode/skills/backend-reference .opencode/skills/data-reference
-cp agents/*.md .opencode/agents/
-cp skills/frontend-reference/SKILL.md .opencode/skills/frontend-reference/
-cp skills/backend-reference/SKILL.md .opencode/skills/backend-reference/
-cp skills/data-reference/SKILL.md .opencode/skills/data-reference/
-```
+| Skill | Used by | Purpose |
+|-------|---------|---------|
+| `frontend-reference` | frontend-reviewer | React, TS patterns, anti-patterns |
+| `backend-reference` | backend-reviewer | Go, Python, API patterns |
+| `data-reference` | data-reviewer | dbt, SQL, warehouse patterns |
+| `refactoring-patterns` | refactor-analyzer | Code smells catalog |
+| `architecture-patterns` | arch analyzers | Architecture patterns catalog |
 
 ---
 
@@ -308,29 +315,41 @@ cp skills/data-reference/SKILL.md .opencode/skills/data-reference/
 
 ```
 review-agent/
-  agents/                          # OpenCode agents
-    review-agent.md                  # Primary — orchestrates reviews
-    frontend-reviewer.md             # Subagent — React/TS/a11y/perf
-    backend-reviewer.md              # Subagent — Go/Python/API
-    data-reviewer.md                 # Subagent — dbt/SQL/warehouse/data quality
-    security-checker.md              # Subagent — OWASP security audit
-  skills/                          # OpenCode skills (lazy-loaded references)
-    frontend-reference/
-      SKILL.md
-    backend-reference/
-      SKILL.md
-    data-reference/
-      SKILL.md
-  claude-code/                     # Claude Code agents & commands
-    agents/
-      review-agent.md               # Primary — orchestrates reviews
-      frontend-reviewer.md          # Subagent — React/TS/a11y/perf
-      backend-reviewer.md           # Subagent — Go/Python/API
-      data-reviewer.md              # Subagent — dbt/SQL/warehouse/data quality
-      security-checker.md           # Subagent — OWASP security audit
+  agents/                              # OpenCode agents
+    review-agent.md                      # /cr orchestrator
+    frontend-reviewer.md                 # Frontend review subagent
+    backend-reviewer.md                  # Backend review subagent
+    data-reviewer.md                     # Data review subagent
+    security-checker.md                  # Security review subagent
+    refactor-agent.md                    # /cr-refactor orchestrator
+    refactor-analyzer.md                 # Refactoring subagent
+    arch-agent.md                        # /cr-arch orchestrator
+    frontend-arch-analyzer.md            # Frontend arch subagent
+    backend-arch-analyzer.md             # Backend arch subagent
+    agents-doc-generator.md              # /cr-agents orchestrator
+    codebase-mapper.md                   # Codebase mapping subagent
+    flow-tracer.md                       # Flow tracing subagent
+    research-agent.md                    # /cr-research orchestrator
+    theory-analyzer.md                   # Theory analysis subagent
+    implementation-planner.md            # Implementation planning subagent
+  skills/                              # Lazy-loaded reference skills
+    frontend-reference/SKILL.md
+    backend-reference/SKILL.md
+    data-reference/SKILL.md
+    refactoring-patterns/SKILL.md
+    architecture-patterns/SKILL.md
+  claude-code/                         # Claude Code agents & commands
+    agents/                              # Same agents, Claude Code format
     commands/
-      review.md                     # /review slash command
-  install.sh                       # OpenCode installer
-  install-claude-code.sh           # Claude Code installer
-  README.md                        # This file
+      cr.md                              # /cr command
+      cr-refactor.md                     # /cr-refactor command
+      cr-arch.md                         # /cr-arch command
+      cr-agents.md                       # /cr-agents command
+      cr-research.md                     # /cr-research command
+  hooks/
+    pre-push-review.sh                   # Git pre-push hook
+    install-hook.sh                      # Hook installer
+  .review-agent.example.yml             # Config template
+  install.sh                           # OpenCode installer
+  install-claude-code.sh               # Claude Code installer
 ```
